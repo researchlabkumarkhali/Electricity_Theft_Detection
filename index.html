@@ -13,7 +13,6 @@
       --accent-soft:rgba(34,197,94,0.18);
       --danger:#ef4444;
       --danger-soft:rgba(248,113,113,0.18);
-      --info:#38bdf8;
       --text:#e5e7eb;
       --muted:#9ca3af;
       --border:rgba(148,163,184,0.4);
@@ -180,13 +179,14 @@
     <header>
       <div>
         <h1>ESP32 Power Theft Monitor</h1>
-        <p>Global live dashboard via GitHub Pages + Firebase</p>
+        <p>Global dashboard via Firebase</p>
       </div>
       <div class="pill">
         <div class="pill-dot"></div>
         <span>Live</span><span>Global access</span>
       </div>
     </header>
+
     <main>
       <section class="card">
         <h2>Meter Telemetry</h2>
@@ -198,22 +198,22 @@
           </div>
           <div class="metric">
             <div class="label">Load Voltage</div>
-            <div class="value" id="ldV">-- V</div>
+            <div class="value" id="ldV">0.00 V</div>
             <div class="meta">Consumer side</div>
           </div>
           <div class="metric">
             <div class="label">Load Current</div>
-            <div class="value" id="ldI">-- A</div>
+            <div class="value" id="ldI">0.00 A</div>
             <div class="meta">Consumer side</div>
           </div>
           <div class="metric">
             <div class="label">Load Power</div>
-            <div class="value" id="ldP">-- W</div>
+            <div class="value" id="ldP">0.00 W</div>
             <div class="meta" id="pMeta">Load: --</div>
           </div>
           <div class="metric">
             <div class="label">TX Power</div>
-            <div class="value" id="txP">-- W</div>
+            <div class="value" id="txP">0.00 W</div>
             <div class="meta">Transmission side</div>
           </div>
           <div class="metric">
@@ -226,8 +226,10 @@
             </div>
           </div>
         </div>
+
         <div class="section-title">Theft Reason</div>
         <div class="reason-box"><span id="reason">none</span></div>
+
         <div class="spark-wrap">
           <div class="section-title">Power history (TX vs Load)</div>
           <canvas id="spark" class="spark"></canvas>
@@ -251,13 +253,13 @@
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
     const firebaseConfig = {
-     apiKey: "AIzaSyAMMLuj9ofg-34FZ6jp1isB4o2OHRunR-w",
-  authDomain: "electricity-theft-detect-f180a.firebaseapp.com",
-  databaseURL: "https://electricity-theft-detect-f180a-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "electricity-theft-detect-f180a",
-  storageBucket: "electricity-theft-detect-f180a.firebasestorage.app",
-  messagingSenderId: "305642974998",
-  appId: "1:305642974998:web:32c0aee3aad50719442a37"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "YOUR_DATABASE_URL",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_MSG_ID",
+      appId: "YOUR_APP_ID"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -301,29 +303,29 @@
       ctx.strokeStyle = "rgba(148,163,184,0.25)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(0, yFor(maxVal/2));
-      ctx.lineTo(w, yFor(maxVal/2));
+      ctx.moveTo(0, yFor(maxVal / 2));
+      ctx.lineTo(w, yFor(maxVal / 2));
       ctx.stroke();
 
       ctx.strokeStyle = "rgba(56,189,248,1)";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      txHist.forEach((v,i)=>{
+      txHist.forEach((v, i) => {
         const x = i * step;
         const y = yFor(v);
-        if(i===0) ctx.moveTo(x,y);
-        else ctx.lineTo(x,y);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       });
       ctx.stroke();
 
       ctx.strokeStyle = "rgba(34,197,94,1)";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ldHist.forEach((v,i)=>{
+      ldHist.forEach((v, i) => {
         const x = i * step;
         const y = yFor(v);
-        if(i===0) ctx.moveTo(x,y);
-        else ctx.lineTo(x,y);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       });
       ctx.stroke();
     }
@@ -331,15 +333,23 @@
     onValue(meterRef, (snapshot) => {
       const d = snapshot.val() || {};
 
+      const ldVoltage = Number(d.ld_voltage || 0);
+      const ldCurrent = Number(d.ld_current || 0);
+      const ldPower   = Number(d.ld_power || 0);
+      const txPower   = Number(d.tx_power || 0);
+
       document.getElementById('mId').textContent = d.meter_id || '--';
       document.getElementById('mArea').textContent = 'Area: ' + (d.area || '--');
-      document.getElementById('ldV').textContent = ((d.ld_voltage)||0).toFixed(2) + ' V';
-      document.getElementById('ldI').textContent = ((d.ld_current)||0).toFixed(2) + ' A';
-      document.getElementById('ldP').textContent = ((d.ld_power)||0).toFixed(2) + ' W';
-      document.getElementById('txP').textContent = ((d.tx_power)||0).toFixed(2) + ' W';
 
-      document.getElementById('pMeta').textContent = 'Load: ' + classifyLoad(d.ld_power || 0);
-      document.getElementById('reason').textContent = d.reason || 'none';
+      document.getElementById('ldV').textContent = ldVoltage.toFixed(2) + ' V';
+      document.getElementById('ldI').textContent = ldCurrent.toFixed(2) + ' A';
+      document.getElementById('ldP').textContent = ldPower.toFixed(2) + ' W';
+      document.getElementById('txP').textContent = txPower.toFixed(2) + ' W';
+
+      document.getElementById('pMeta').textContent = 'Load: ' + classifyLoad(ldPower);
+
+      document.getElementById('reason').textContent =
+        (d.reason && String(d.reason).trim().length > 0) ? d.reason : 'none';
 
       const status = d.status || 'NORMAL';
       const pill = document.getElementById('statusPill');
@@ -348,15 +358,16 @@
       const alertBadge = document.getElementById('alertBadge');
       const alertText = document.getElementById('alertText');
 
-      pill.classList.remove('status-normal','status-theft');
+      pill.classList.remove('status-normal', 'status-theft');
       dot.classList.remove('danger');
 
-      if(status === 'THEFT'){
+      if (status === 'THEFT') {
         pill.classList.add('status-theft');
         dot.classList.add('danger');
         alertBadge.classList.remove('ok');
         alertBadge.textContent = 'Active Theft';
-        alertText.textContent = 'TX vs Consumer power difference above threshold: ' + (d.reason || 'Unknown');
+        alertText.textContent = 'TX vs Consumer power difference above threshold: ' +
+          ((d.reason && String(d.reason).trim().length > 0) ? d.reason : 'Unknown');
       } else {
         pill.classList.add('status-normal');
         alertBadge.classList.add('ok');
@@ -369,9 +380,12 @@
 
     onValue(historyRef, (snapshot) => {
       const data = snapshot.val() || {};
-      const items = Object.values(data).sort((a,b)=>(a.timestamp||0)-(b.timestamp||0)).slice(-60);
-      txHist = items.map(x => x.tx_power || 0);
-      ldHist = items.map(x => x.ld_power || 0);
+      const items = Object.values(data)
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+        .slice(-60);
+
+      txHist = items.map(x => Number(x.tx_power || 0));
+      ldHist = items.map(x => Number(x.ld_power || 0));
       updateSparkline();
     });
   </script>
