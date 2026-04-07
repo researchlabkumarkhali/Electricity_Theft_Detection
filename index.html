@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ESP32 Power Theft Monitor</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <style>
+    :root{
+      --bg:#020617;
+      --card:#020617;
+      --panel:#020617;
+      --accent:#22c55e;
+      --accent-soft:rgba(34,197,94,0.18);
+      --danger:#ef4444;
+      --danger-soft:rgba(248,113,113,0.18);
+      --info:#38bdf8;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --border:rgba(148,163,184,0.4);
+    }
+    *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{
+      min-height:100vh;
+      background:
+        radial-gradient(circle at top,#0f172a 0,#020617 55%),
+        radial-gradient(circle at bottom right,rgba(34,197,94,0.15) 0,transparent 55%),
+        radial-gradient(circle at top left,rgba(56,189,248,0.15) 0,transparent 50%);
+      color:var(--text);
+      display:flex;
+      justify-content:center;
+      align-items:stretch;
+      padding:14px;
+    }
+    .shell{
+      width:100%;
+      max-width:950px;
+      background:rgba(15,23,42,0.96);
+      border-radius:18px;
+      border:1px solid var(--border);
+      box-shadow:0 18px 40px rgba(0,0,0,0.8);
+      overflow:hidden;
+      backdrop-filter:blur(12px);
+    }
+    header{
+      padding:10px 14px;
+      border-bottom:1px solid rgba(148,163,184,0.4);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+    header h1{
+      font-size:1rem;
+      letter-spacing:0.18em;
+      text-transform:uppercase;
+    }
+    header p{
+      font-size:0.75rem;
+      color:var(--muted);
+      margin-top:2px;
+    }
+    .pill{
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      font-size:0.72rem;
+      background:rgba(15,23,42,0.9);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      color:var(--muted);
+    }
+    .pill-dot{
+      width:8px;height:8px;border-radius:999px;
+      background:radial-gradient(circle at 40% 30%,#bbf7d0,#22c55e);
+      box-shadow:0 0 8px rgba(34,197,94,0.9);
+    }
+    main{
+      display:grid;
+      grid-template-columns:1.6fr 1.1fr;
+      gap:10px;
+      padding:10px 10px 12px;
+    }
+    @media(max-width:780px){ main{grid-template-columns:1fr;} }
+    .card,.alert-panel{
+      background:rgba(15,23,42,0.98);
+      border-radius:14px;
+      border:1px solid var(--border);
+      padding:8px 10px;
+      box-shadow:0 14px 30px rgba(0,0,0,0.7);
+    }
+    .card h2,.alert-header h2{
+      font-size:0.85rem;
+      letter-spacing:0.16em;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin-bottom:4px;
+    }
+    .row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+    .metric{
+      flex:1 1 130px;
+      padding:7px 8px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,0.5);
+      background:rgba(15,23,42,0.95);
+      font-size:0.78rem;
+    }
+    .label{ text-transform:uppercase; letter-spacing:0.12em; font-size:0.7rem; color:var(--muted);}
+    .value{ font-size:1.05rem; font-weight:600; }
+    .meta{ font-size:0.7rem; color:var(--muted); margin-top:2px; }
+    .section-title{
+      font-size:0.78rem;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:0.12em;
+      margin-top:4px;
+    }
+    .status-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:3px 9px;
+      border-radius:999px;
+      border:1px solid;
+      font-size:0.7rem;
+      text-transform:uppercase;
+      letter-spacing:0.14em;
+    }
+    .status-normal{
+      border-color:rgba(34,197,94,0.9);
+      background:rgba(34,197,94,0.18);
+      color:#dcfce7;
+      box-shadow:0 0 8px rgba(34,197,94,0.8);
+    }
+    .status-theft{
+      border-color:rgba(248,113,113,0.95);
+      background:rgba(248,113,113,0.18);
+      color:#fee2e2;
+      box-shadow:0 0 10px rgba(248,113,113,0.9);
+    }
+    .status-dot{
+      width:8px;height:8px;border-radius:999px;
+      background:radial-gradient(circle at 40% 30%,#bbf7d0,#22c55e);
+    }
+    .status-dot.danger{
+      background:radial-gradient(circle at 40% 30%,#fecaca,#ef4444);
+    }
+    .reason-box,.spark-wrap{
+      margin-top:6px;
+      padding:6px 8px;
+      border-radius:10px;
+      border:1px solid rgba(148,163,184,0.5);
+      background:rgba(15,23,42,0.95);
+      font-size:0.72rem;
+      color:var(--muted);
+    }
+    #reason{ color:#fca5a5; }
+    .spark{ width:100%; height:120px; }
+    .alert-header{
+      display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;
+    }
+    .alert-badge{
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(248,113,113,0.9);
+      background:rgba(127,29,29,0.9);
+      color:#fecaca;
+      font-size:0.72rem;
+    }
+    .alert-badge.ok{
+      border-color:rgba(34,197,94,0.9);
+      background:rgba(22,163,74,0.9);
+      color:#dcfce7;
+    }
+    .alert-text{ margin-top:4px; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1>ESP32 Power Theft Monitor</h1>
+        <p>Global live dashboard via GitHub Pages + Firebase</p>
+      </div>
+      <div class="pill">
+        <div class="pill-dot"></div>
+        <span>Live</span><span>Global access</span>
+      </div>
+    </header>
+    <main>
+      <section class="card">
+        <h2>Meter Telemetry</h2>
+        <div class="row">
+          <div class="metric">
+            <div class="label">Meter</div>
+            <div class="value" id="mId">--</div>
+            <div class="meta" id="mArea">Area: --</div>
+          </div>
+          <div class="metric">
+            <div class="label">Load Voltage</div>
+            <div class="value" id="ldV">-- V</div>
+            <div class="meta">Consumer side</div>
+          </div>
+          <div class="metric">
+            <div class="label">Load Current</div>
+            <div class="value" id="ldI">-- A</div>
+            <div class="meta">Consumer side</div>
+          </div>
+          <div class="metric">
+            <div class="label">Load Power</div>
+            <div class="value" id="ldP">-- W</div>
+            <div class="meta" id="pMeta">Load: --</div>
+          </div>
+          <div class="metric">
+            <div class="label">TX Power</div>
+            <div class="value" id="txP">-- W</div>
+            <div class="meta">Transmission side</div>
+          </div>
+          <div class="metric">
+            <div class="label">Status</div>
+            <div style="margin-top:4px;">
+              <span class="status-pill status-normal" id="statusPill">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">NORMAL</span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="section-title">Theft Reason</div>
+        <div class="reason-box"><span id="reason">none</span></div>
+        <div class="spark-wrap">
+          <div class="section-title">Power history (TX vs Load)</div>
+          <canvas id="spark" class="spark"></canvas>
+        </div>
+      </section>
+
+      <aside class="alert-panel">
+        <div class="alert-header">
+          <h2>Theft Alert</h2>
+          <span class="alert-badge ok" id="alertBadge">No Active Theft</span>
+        </div>
+        <div class="alert-text" id="alertText">
+          System is running in normal mode. Any theft conditions will appear here.
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+     apiKey: "AIzaSyAMMLuj9ofg-34FZ6jp1isB4o2OHRunR-w",
+  authDomain: "electricity-theft-detect-f180a.firebaseapp.com",
+  databaseURL: "https://electricity-theft-detect-f180a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "electricity-theft-detect-f180a",
+  storageBucket: "electricity-theft-detect-f180a.firebasestorage.app",
+  messagingSenderId: "305642974998",
+  appId: "1:305642974998:web:32c0aee3aad50719442a37"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const meterId = "MTR001";
+    const meterRef = ref(db, "meters/" + meterId);
+    const historyRef = ref(db, "meters/" + meterId + "/history");
+
+    let txHist = [];
+    let ldHist = [];
+
+    function classifyLoad(p){
+      if(p < 10) return "Very light";
+      if(p < 30) return "Light";
+      if(p < 60) return "Medium";
+      if(p < 100) return "Heavy";
+      return "Very heavy";
+    }
+
+    function updateSparkline(){
+      const canvas = document.getElementById('spark');
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width = canvas.clientWidth;
+      const h = canvas.height = canvas.clientHeight;
+
+      ctx.clearRect(0,0,w,h);
+      if(txHist.length < 2) return;
+
+      const maxVal = Math.max(...txHist, ...ldHist, 10);
+      const n = txHist.length;
+      const step = w / Math.max(1, n - 1);
+
+      function yFor(v){
+        let norm = v / maxVal;
+        if(norm < 0) norm = 0;
+        if(norm > 1) norm = 1;
+        return h - norm * h;
+      }
+
+      ctx.strokeStyle = "rgba(148,163,184,0.25)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, yFor(maxVal/2));
+      ctx.lineTo(w, yFor(maxVal/2));
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(56,189,248,1)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      txHist.forEach((v,i)=>{
+        const x = i * step;
+        const y = yFor(v);
+        if(i===0) ctx.moveTo(x,y);
+        else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(34,197,94,1)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ldHist.forEach((v,i)=>{
+        const x = i * step;
+        const y = yFor(v);
+        if(i===0) ctx.moveTo(x,y);
+        else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+    }
+
+    onValue(meterRef, (snapshot) => {
+      const d = snapshot.val() || {};
+
+      document.getElementById('mId').textContent = d.meter_id || '--';
+      document.getElementById('mArea').textContent = 'Area: ' + (d.area || '--');
+      document.getElementById('ldV').textContent = ((d.ld_voltage)||0).toFixed(2) + ' V';
+      document.getElementById('ldI').textContent = ((d.ld_current)||0).toFixed(2) + ' A';
+      document.getElementById('ldP').textContent = ((d.ld_power)||0).toFixed(2) + ' W';
+      document.getElementById('txP').textContent = ((d.tx_power)||0).toFixed(2) + ' W';
+
+      document.getElementById('pMeta').textContent = 'Load: ' + classifyLoad(d.ld_power || 0);
+      document.getElementById('reason').textContent = d.reason || 'none';
+
+      const status = d.status || 'NORMAL';
+      const pill = document.getElementById('statusPill');
+      const dot = document.getElementById('statusDot');
+      const sTxt = document.getElementById('statusText');
+      const alertBadge = document.getElementById('alertBadge');
+      const alertText = document.getElementById('alertText');
+
+      pill.classList.remove('status-normal','status-theft');
+      dot.classList.remove('danger');
+
+      if(status === 'THEFT'){
+        pill.classList.add('status-theft');
+        dot.classList.add('danger');
+        alertBadge.classList.remove('ok');
+        alertBadge.textContent = 'Active Theft';
+        alertText.textContent = 'TX vs Consumer power difference above threshold: ' + (d.reason || 'Unknown');
+      } else {
+        pill.classList.add('status-normal');
+        alertBadge.classList.add('ok');
+        alertBadge.textContent = 'No Active Theft';
+        alertText.textContent = 'System is running in normal mode. Any theft conditions will appear here.';
+      }
+
+      sTxt.textContent = status;
+    });
+
+    onValue(historyRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      const items = Object.values(data).sort((a,b)=>(a.timestamp||0)-(b.timestamp||0)).slice(-60);
+      txHist = items.map(x => x.tx_power || 0);
+      ldHist = items.map(x => x.ld_power || 0);
+      updateSparkline();
+    });
+  </script>
+</body>
+</html>
